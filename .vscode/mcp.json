@@ -9,6 +9,29 @@
         "JIRA_USERNAME": "${env:JIRA_USERNAME}",
         "JIRA_API_TOKEN": "${env:JIRA_API_TOKEN}"
       }
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "cloud_run": {
+      "type": "http",
+      "url": "https://run.googleapis.com/mcp"
+    },
+    "google_developer_knowledge": {
+      "type": "http",
+      "url": "https://developerknowledge.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${input:google_developer_knowledge_api_key}"
+      }
     }
-  }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "google_developer_knowledge_api_key",
+      "description": "Google Developer Knowledge API key",
+      "password": true
+    }
+  ]
 }
