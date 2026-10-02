@@ -40,8 +40,12 @@ When asked to generate or refactor Python code for batch processing files with G
 Always structure the batch function with full type hints and docstrings following this template pattern:
 
 ```python
+import logging
+
 from google.api_core.client_options import ClientOptions
 from google.cloud import documentai_v1 as documentai
+
+logger = logging.getLogger(__name__)
 
 def process_batch_documents(
     project_id: str,
@@ -80,9 +84,13 @@ def process_batch_documents(
     )
 
     operation = client.batch_process_documents(request=request)
-    print(f"Started batch operation: {operation.operation.name}")
+    logger.info("Started Document AI batch operation: %s", operation.operation.name)
 
     # 5. Wait for completion
-    operation.result(timeout=timeout_seconds)
-    print("Batch processing completed successfully.")
+    try:
+        operation.result(timeout=timeout_seconds)
+    except Exception:
+        logger.exception("Document AI batch operation failed: %s", operation.operation.name)
+        raise
+    logger.info("Document AI batch operation completed: %s", operation.operation.name)
 ```

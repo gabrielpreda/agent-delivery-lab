@@ -38,3 +38,16 @@ persistent conversation behavior.
 ```sh
 pytest
 ```
+
+## Agent development skills and MCP tools
+
+Repository-specific GitHub Copilot skills live in `.github/skills/`:
+
+- `delivery-lifecycle` describes Jira-backed work from triage through review and merge.
+- `fastapi-adk` captures the service and agent conventions in this repository.
+- `gcp-cloud-run` covers deployment and operations on Cloud Run.
+- `gcp-agent-engine` covers architecture and deployment considerations for Agent Engine.
+- `container-deployment` covers local Docker, Kubernetes, and other managed container targets.
+- `generate-pytest-suite`, `repository-discovery`, `pandas-data-cleaning`, and `gcp-document-ai-batch` are also present; the last two support unrelated project types.
+
+The VS Code MCP configuration in `.vscode/mcp.json` includes Jira, GitHub's hosted MCP server, Google's hosted Cloud Run MCP server, and Google Developer Knowledge for official ADK/GCP documentation. Jira credentials must be supplied as `JIRA_USERNAME` and `JIRA_API_TOKEN`; the Developer Knowledge key is requested by VS Code and is not stored in the checked-in file. The GitHub and Cloud Run endpoints require the corresponding sign-in and IAM permissions in the MCP host. Cloud Run MCP can modify cloud resources, so use a least-privilege identity and verify the target project and region before deployment. No Agent Engine-specific MCP server is configured; follow current Google SDK/CLI guidance for that target.
