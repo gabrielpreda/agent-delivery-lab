@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "jira": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-atlassian"],
+      "env": {
+        "JIRA_URL": "https://build-with-ai.atlassian.net",
+        "JIRA_USERNAME": "${env:JIRA_USERNAME}",
+        "JIRA_API_TOKEN": "${env:JIRA_API_TOKEN}"
+      }
+    }
+  }
+}
