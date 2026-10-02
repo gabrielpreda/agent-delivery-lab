@@ -1,0 +1,1 @@
+"""FastAPI service for the ADK agent."""
