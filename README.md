@@ -26,6 +26,10 @@ uvicorn app.main:app --reload
 - `POST /query` accepts `{"query":"..."}` and returns `{"response":"..."}`.
 	Empty and whitespace-only queries are rejected with HTTP 422. Agent execution
 	failures return HTTP 502.
+- `POST /soap/parse` accepts `{"medical_note":"..."}` and returns
+	`{"parsed_content":"..."}` for downstream normalization. The parser uses
+	the configured ADK model and does not produce SOAP sections; blank input is
+	rejected with HTTP 422 and parser failures return HTTP 502.
 - Interactive API documentation is available at `/docs`.
 
 Each query runs in a new in-memory ADK session; conversation history is not
