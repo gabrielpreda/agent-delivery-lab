@@ -26,10 +26,16 @@ def test_legacy_query_route_is_removed(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_parse_medical_note_returns_parsed_content(client: TestClient) -> None:
-    async def fake_parser(medical_note: str) -> str:
+def test_parse_medical_note_returns_structured_soap_note(client: TestClient) -> None:
+    async def fake_parser(medical_note: str) -> dict[str, str]:
         assert medical_note == "Patient reports a headache."
-        return "Reported symptom: headache"
+        return {
+            "soap_note": (
+                '{"subjective":"Headache","objective":null,'
+                '"assessment":null,"plan":null}'
+            ),
+            "check_result": '{"passed":true,"issues":[]}',
+        }
 
     app.dependency_overrides[get_medical_note_parser] = lambda: fake_parser
 
@@ -39,7 +45,32 @@ def test_parse_medical_note_returns_parsed_content(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"parsed_content": "Reported symptom: headache"}
+    assert response.json() == {
+        "soap_note": {
+            "subjective": "Headache",
+            "objective": None,
+            "assessment": None,
+            "plan": None,
+        },
+        "validation": {"passed": True, "issues": []},
+    }
+
+
+def test_parse_medical_note_rejects_invalid_soap_json(
+    client: TestClient,
+) -> None:
+    async def invalid_parser(_: str) -> dict[str, str]:
+        return {
+            "soap_note": "This is not SOAP JSON",
+            "check_result": '{"passed":true,"issues":[]}',
+        }
+
+    app.dependency_overrides[get_medical_note_parser] = lambda: invalid_parser
+
+    response = client.post("/soap/parse", json={"medical_note": "Note text"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Medical note parsing failed"}
 
 
 @pytest.mark.parametrize("medical_note", ["", "   ", "\n\t"])
