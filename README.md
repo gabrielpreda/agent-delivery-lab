@@ -23,19 +23,15 @@ uvicorn app.main:app --reload
 ## API
 
 - `GET /healthz` returns `{"status":"ok"}`.
-- `POST /query` accepts `{"query":"..."}` and returns `{"response":"..."}`.
-	Empty and whitespace-only queries are rejected with HTTP 422. Agent execution
-	failures return HTTP 502.
 - `POST /soap/parse` accepts `{"medical_note":"..."}` and returns
-	`{"parsed_content":"..."}` for downstream normalization. The parser uses
-	the configured ADK model and does not produce SOAP sections; blank input is
-	rejected with HTTP 422 and parser failures return HTTP 502.
+	`{"soap_note":{"subjective":...,"objective":...,"assessment":...,"plan":...}}`.
+	The root ADK sequential workflow parses and normalizes the note, converts it to
+	SOAP JSON, and returns the checker result. Undocumented sections are `null`;
+	blank input returns HTTP 422 and workflow failures return HTTP 502.
 - Interactive API documentation is available at `/docs`.
 
-Each query runs in a new in-memory ADK session; conversation history is not
-retained between requests or process restarts. The initial agent is a generic
-assistant because SCRUM-1 does not specify domain instructions, tools, or
-persistent conversation behavior.
+Each medical note workflow runs in a new in-memory ADK session; conversation
+history is not retained between requests or process restarts.
 
 ## Tests
 
