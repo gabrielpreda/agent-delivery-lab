@@ -3,7 +3,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_agent_query
+from app.main import app, get_agent_query, get_medical_note_parser
 
 
 @pytest.fixture
@@ -50,3 +50,43 @@ def test_query_hides_agent_exception_details(client: TestClient) -> None:
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Agent query failed"}
+
+
+def test_parse_medical_note_returns_parsed_content(client: TestClient) -> None:
+    async def fake_parser(medical_note: str) -> str:
+        assert medical_note == "Patient reports a headache."
+        return "Reported symptom: headache"
+
+    app.dependency_overrides[get_medical_note_parser] = lambda: fake_parser
+
+    response = client.post(
+        "/soap/parse",
+        json={"medical_note": "Patient reports a headache."},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"parsed_content": "Reported symptom: headache"}
+
+
+@pytest.mark.parametrize("medical_note", ["", "   ", "\n\t"])
+def test_parse_medical_note_rejects_blank_input(
+    client: TestClient,
+    medical_note: str,
+) -> None:
+    response = client.post("/soap/parse", json={"medical_note": medical_note})
+
+    assert response.status_code == 422
+
+
+def test_parse_medical_note_hides_parser_exception_details(
+    client: TestClient,
+) -> None:
+    async def failing_parser(_: str) -> str:
+        raise RuntimeError("private backend detail")
+
+    app.dependency_overrides[get_medical_note_parser] = lambda: failing_parser
+
+    response = client.post("/soap/parse", json={"medical_note": "Note text"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Medical note parsing failed"}
