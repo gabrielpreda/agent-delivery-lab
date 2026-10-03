@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.agent import run_medical_note_parser
 
 logger = logging.getLogger(__name__)
-MedicalNoteParser = Callable[[str], Awaitable[str]]
+MedicalNoteParser = Callable[[str], Awaitable[dict[str, str]]]
 
 app = FastAPI(title="Agent Delivery Lab", version="0.1.0")
 
@@ -29,10 +29,27 @@ class MedicalNoteRequest(BaseModel):
         return value
 
 
-class MedicalNoteParseResponse(BaseModel):
-    """Response body containing parsed note text for downstream normalization."""
+class SOAPNote(BaseModel):
+    """The four SOAP sections; undocumented sections are represented as null."""
 
-    parsed_content: str
+    subjective: str | None
+    objective: str | None
+    assessment: str | None
+    plan: str | None
+
+
+class SOAPCheckResult(BaseModel):
+    """Checker outcome; retry orchestration is implemented by the next story."""
+
+    passed: bool
+    issues: list[str]
+
+
+class MedicalNoteParseResponse(BaseModel):
+    """Response body containing SOAP conversion and checker output."""
+
+    soap_note: SOAPNote
+    validation: SOAPCheckResult
 
 
 def get_medical_note_parser() -> MedicalNoteParser:
@@ -51,13 +68,17 @@ async def parse_medical_note(
     request: MedicalNoteRequest,
     note_parser: MedicalNoteParser = Depends(get_medical_note_parser),
 ) -> MedicalNoteParseResponse:
-    """Parse a medical note and return text for downstream normalization."""
+    """Run the note through parsing, normalization, conversion, and checking."""
     try:
-        parsed_content = await note_parser(request.medical_note)
+        result = await note_parser(request.medical_note)
+        soap_json = result["soap_note"]
+        check_json = result["check_result"]
+        soap_note = SOAPNote.model_validate_json(soap_json)
+        validation = SOAPCheckResult.model_validate_json(check_json)
     except Exception as exc:
         logger.exception("Medical note parsing failed")
         raise HTTPException(
             status_code=502,
             detail="Medical note parsing failed",
         ) from exc
-    return MedicalNoteParseResponse(parsed_content=parsed_content)
+    return MedicalNoteParseResponse(soap_note=soap_note, validation=validation)
