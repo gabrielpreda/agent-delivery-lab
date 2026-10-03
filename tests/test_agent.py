@@ -34,3 +34,28 @@ def test_run_agent_query_uses_a_fresh_session_and_returns_final_text(
     assert calls["run"]["user_id"] == agent.USER_ID
     assert calls["run"]["session_id"] == calls["session"]["session_id"]
     assert calls["run"]["new_message"].parts[0].text == "Test query"
+
+
+def test_run_medical_note_parser_uses_parser_runner(
+    monkeypatch: Any,
+) -> None:
+    calls: dict[str, Any] = {}
+
+    async def create_session(**kwargs: Any) -> None:
+        calls["session"] = kwargs
+
+    async def run_async(**kwargs: Any) -> Any:
+        calls["run"] = kwargs
+        yield SimpleNamespace(
+            is_final_response=lambda: True,
+            content=types.Content(parts=[types.Part(text="Parsed note facts")]),
+        )
+
+    monkeypatch.setattr(agent.session_service, "create_session", create_session)
+    monkeypatch.setattr(agent.medical_note_parser_runner, "run_async", run_async)
+
+    response = asyncio.run(agent.run_medical_note_parser("Medical note text"))
+
+    assert response == "Parsed note facts"
+    assert calls["session"]["session_id"] == calls["run"]["session_id"]
+    assert calls["run"]["new_message"].parts[0].text == "Medical note text"
