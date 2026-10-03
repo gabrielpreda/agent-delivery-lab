@@ -39,16 +39,16 @@ class SOAPNote(BaseModel):
 
 
 class SOAPCheckResult(BaseModel):
-    """Checker outcome; retry orchestration is implemented by the next story."""
+    """Checker outcome used to gate final SOAP note delivery."""
 
     passed: bool
     issues: list[str]
 
 
 class MedicalNoteParseResponse(BaseModel):
-    """Response body containing SOAP conversion and checker output."""
+    """Response body containing a validated SOAP note or a failed validation."""
 
-    soap_note: SOAPNote
+    soap_note: SOAPNote | None
     validation: SOAPCheckResult
 
 
@@ -71,10 +71,13 @@ async def parse_medical_note(
     """Run the note through parsing, normalization, conversion, and checking."""
     try:
         result = await note_parser(request.medical_note)
-        soap_json = result["soap_note"]
         check_json = result["check_result"]
-        soap_note = SOAPNote.model_validate_json(soap_json)
         validation = SOAPCheckResult.model_validate_json(check_json)
+        soap_note = (
+            SOAPNote.model_validate_json(result["soap_note"])
+            if validation.passed
+            else None
+        )
     except Exception as exc:
         logger.exception("Medical note parsing failed")
         raise HTTPException(

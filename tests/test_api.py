@@ -73,15 +73,12 @@ def test_parse_medical_note_rejects_invalid_soap_json(
     assert response.json() == {"detail": "Medical note parsing failed"}
 
 
-def test_parse_medical_note_returns_failed_validation_after_second_pass(
+def test_parse_medical_note_does_not_deliver_failed_validation(
     client: TestClient,
 ) -> None:
     async def failed_validation(_: str) -> dict[str, str]:
         return {
-            "soap_note": (
-                '{"subjective":"Headache","objective":null,'
-                '"assessment":null,"plan":null}'
-            ),
+            "soap_note": "Unvalidated note must not be delivered",
             "check_result": '{"passed":false,"issues":["Missing plan"]}',
         }
 
@@ -90,9 +87,12 @@ def test_parse_medical_note_returns_failed_validation_after_second_pass(
     response = client.post("/soap/parse", json={"medical_note": "Note text"})
 
     assert response.status_code == 200
-    assert response.json()["validation"] == {
-        "passed": False,
-        "issues": ["Missing plan"],
+    assert response.json() == {
+        "soap_note": None,
+        "validation": {
+            "passed": False,
+            "issues": ["Missing plan"],
+        },
     }
 
 
