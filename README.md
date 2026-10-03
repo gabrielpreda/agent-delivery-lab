@@ -25,9 +25,11 @@ uvicorn app.main:app --reload
 - `GET /healthz` returns `{"status":"ok"}`.
 - `POST /soap/parse` accepts `{"medical_note":"..."}` and returns
 	`{"soap_note":{"subjective":...,"objective":...,"assessment":...,"plan":...}}`.
-	The root ADK sequential workflow parses and normalizes the note, converts it to
-	SOAP JSON, and returns the checker result. Undocumented sections are `null`;
-	blank input returns HTTP 422 and workflow failures return HTTP 502.
+	The root ADK workflow parses and normalizes the note, then runs SOAP conversion
+	and checking in a loop with at most one retry. A passed check exits the loop;
+	a second failed check is returned as failed validation. Undocumented SOAP
+	sections are `null`; blank input returns HTTP 422 and workflow failures return
+	HTTP 502.
 - Interactive API documentation is available at `/docs`.
 
 Each medical note workflow runs in a new in-memory ADK session; conversation

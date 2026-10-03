@@ -6,9 +6,10 @@ import os
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from google.adk.agents import Agent, SequentialAgent
+from google.adk.agents import Agent, LoopAgent, SequentialAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.tools.exit_loop_tool import exit_loop
 from google.genai import types
 
 load_dotenv()
@@ -39,7 +40,9 @@ medical_note_normalizer_agent = Agent(
         "factual representation for SOAP conversion. Preserve all clinically "
         "relevant facts, uncertainty, and omissions. Do not infer, diagnose, or "
         "add facts that are not present. Do not assign SOAP sections yet.\n\n"
-        "Parsed content:\n{parsed_content}"
+        "Parsed content:\n{parsed_content}\n\n"
+        "If a previous validation result is present, address its issues while "
+        "normalizing:\n{check_result?}"
     ),
     output_key="normalized_content",
 )
@@ -55,7 +58,9 @@ medical_note_soap_converter_agent = Agent(
         "that is not documented. Preserve uncertainty and do not invent facts, "
         "diagnoses, or recommendations. Do not include markdown fences or text "
         "outside the JSON object.\n\n"
-        "Normalized content:\n{normalized_content}"
+        "Normalized content:\n{normalized_content}\n\n"
+        "If this is a retry, correct the previous checker issues:\n"
+        "{check_result?}"
     ),
     output_key="soap_note",
 )
@@ -70,24 +75,39 @@ medical_note_soap_checker_agent = Agent(
         "invented or contradicted, and that undocumented sections remain null. "
         "Return only valid JSON with a boolean field named passed and a list of "
         "string issues. Set passed to true only when the SOAP note is valid. "
-        "Do not rewrite the SOAP note or include markdown fences.\n\n"
+        "Do not rewrite the SOAP note or include markdown fences. Call the "
+        "exit_loop tool when the note passes. If this is the second check and "
+        "it still fails, call exit_loop to stop; otherwise leave the loop "
+        "running for its single retry.\n\n"
         "Normalized content:\n{normalized_content}\n\n"
-        "SOAP note:\n{soap_note}"
+        "SOAP note:\n{soap_note}\n\n"
+        "Previous validation result (empty on the first check):\n"
+        "{check_result?}"
     ),
     output_key="check_result",
+    tools=[exit_loop],
+)
+
+soap_conversion_and_check_loop = LoopAgent(
+    name="soap_conversion_and_check_loop",
+    description=(
+        "Converts and validates SOAP output, retrying conversion once when "
+        "validation fails."
+    ),
+    sub_agents=[medical_note_soap_converter_agent, medical_note_soap_checker_agent],
+    max_iterations=2,
 )
 
 root_agent = SequentialAgent(
     name="medical_note_workflow",
     description=(
-        "Orchestrates parsing, normalization, SOAP conversion, and validation "
-        "in workflow order."
+        "Orchestrates parsing and normalization followed by bounded SOAP "
+        "conversion and validation."
     ),
     sub_agents=[
         medical_note_parser_agent,
         medical_note_normalizer_agent,
-        medical_note_soap_converter_agent,
-        medical_note_soap_checker_agent,
+        soap_conversion_and_check_loop,
     ],
 )
 
