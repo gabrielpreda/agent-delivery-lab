@@ -73,6 +73,29 @@ def test_parse_medical_note_rejects_invalid_soap_json(
     assert response.json() == {"detail": "Medical note parsing failed"}
 
 
+def test_parse_medical_note_returns_failed_validation_after_second_pass(
+    client: TestClient,
+) -> None:
+    async def failed_validation(_: str) -> dict[str, str]:
+        return {
+            "soap_note": (
+                '{"subjective":"Headache","objective":null,'
+                '"assessment":null,"plan":null}'
+            ),
+            "check_result": '{"passed":false,"issues":["Missing plan"]}',
+        }
+
+    app.dependency_overrides[get_medical_note_parser] = lambda: failed_validation
+
+    response = client.post("/soap/parse", json={"medical_note": "Note text"})
+
+    assert response.status_code == 200
+    assert response.json()["validation"] == {
+        "passed": False,
+        "issues": ["Missing plan"],
+    }
+
+
 @pytest.mark.parametrize("medical_note", ["", "   ", "\n\t"])
 def test_parse_medical_note_rejects_blank_input(
     client: TestClient,

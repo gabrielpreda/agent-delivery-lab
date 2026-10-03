@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from google.adk.agents import SequentialAgent
+from google.adk.agents import LoopAgent, SequentialAgent
 from google.genai import types
 
 from app import agent
@@ -53,6 +53,11 @@ def test_root_agent_orchestrates_parser_and_pipeline_uses_root_runner(
     assert agent.root_agent.sub_agents == [
         agent.medical_note_parser_agent,
         agent.medical_note_normalizer_agent,
+        agent.soap_conversion_and_check_loop,
+    ]
+    assert isinstance(agent.soap_conversion_and_check_loop, LoopAgent)
+    assert agent.soap_conversion_and_check_loop.max_iterations == 2
+    assert agent.soap_conversion_and_check_loop.sub_agents == [
         agent.medical_note_soap_converter_agent,
         agent.medical_note_soap_checker_agent,
     ]
@@ -64,6 +69,8 @@ def test_root_agent_orchestrates_parser_and_pipeline_uses_root_runner(
     assert "{normalized_content}" in agent.medical_note_soap_converter_agent.instruction
     assert agent.medical_note_soap_checker_agent.output_key == "check_result"
     assert "{soap_note}" in agent.medical_note_soap_checker_agent.instruction
+    assert "{check_result?}" in agent.medical_note_soap_checker_agent.instruction
+    assert agent.exit_loop in agent.medical_note_soap_checker_agent.tools
     assert response == {
         "soap_note": (
             '{"subjective":"Headache","objective":null,'
