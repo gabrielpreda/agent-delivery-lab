@@ -40,6 +40,36 @@ history is not retained between requests or process restarts.
 pytest
 ```
 
+## Deploy to Cloud Run
+
+The repository includes a Dockerfile for the FastAPI service. It listens on
+Cloud Run's `PORT` environment variable and exposes the existing `/healthz`
+health endpoint. For Vertex AI, use a dedicated runtime service account with
+the `roles/aiplatform.user` role; Cloud Run provides its credentials through
+Application Default Credentials, so no API key or service-account key file is
+needed:
+
+```sh
+export PROJECT_ID="your-gcp-project"
+export REGION="your-cloud-run-region"
+export RUNTIME_SERVICE_ACCOUNT="agent-delivery-lab@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud run deploy agent-delivery-lab \
+	--source . \
+	--project "$PROJECT_ID" \
+	--region "$REGION" \
+	--service-account "$RUNTIME_SERVICE_ACCOUNT" \
+	--set-env-vars "GOOGLE_GENAI_USE_ENTERPRISE=TRUE,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION}" \
+	--no-allow-unauthenticated
+```
+
+The command intentionally keeps the service private; configure the Cloud Run
+Invoker policy separately if public access is required. After deployment,
+verify the revision is ready and request `/healthz`. Exercise `POST /soap/parse`
+only with approved, non-sensitive test input. The live project, region, service
+account, access policy, and deployment have not been selected or applied by
+this repository change.
+
 ## Agent development skills and MCP tools
 
 Repository-specific GitHub Copilot skills live in `.github/skills/`:
